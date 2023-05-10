@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.filemanager.databinding.ListItemBinding
-import com.example.filemanager.db.FileEntity
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.attribute.BasicFileAttributes
@@ -17,7 +16,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class ItemsAdapter(
-    private val fragmentLauncher: FragmentLauncher,
     private val listChanger: ListChanger,
     private val context: Context
 ) :
@@ -51,14 +49,17 @@ class ItemsAdapter(
         with(holder.binding) {
             holder.itemView.tag = item
             itemNameTextView.text = item.name
-            if (item.absolutePath in changedPaths) itemNameTextView.setTextColor(context.getColor(R.color.purple_500))
             if (!item.isDirectory) {
+                if (item.absolutePath in changedPaths)
+                    itemNameTextView.setTextColor(context.getColor(R.color.yellow))
+                else itemNameTextView.setTextColor(context.getColor(R.color.black))
+
                 itemExtensionTextView.text = item.extension.uppercase()
                 itemSizeTextView.text = context.getString(R.string.file_size, item.length() / 1024)
                 itemSizeTextView.visibility = View.VISIBLE
                 itemExtensionTextView.visibility = View.VISIBLE
                 iconView.setImageResource(
-                    when(item.extension.lowercase()){
+                    when (item.extension.lowercase()) {
                         in listOf("png", "jpg", "jpeg", "tiff", "raw") -> R.drawable.ic_image_file
                         in listOf("mp4", "mov", "avi") -> R.drawable.ic_video_file
                         in listOf("mp3", "aac") -> R.drawable.ic_audio_file

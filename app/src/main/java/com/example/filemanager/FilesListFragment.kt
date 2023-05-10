@@ -21,22 +21,18 @@ import java.nio.file.Files
 import java.nio.file.attribute.BasicFileAttributes
 
 interface ListChanger {
-    val path: String
+    val curPath: String
     fun newPathList(newPath: String)
 }
 
 class FilesListFragment : Fragment(), ListChanger {
     private lateinit var binding: FragmentFilesListBinding
     private lateinit var adapter: ItemsAdapter
-    override lateinit var path: String
+    override var curPath: String = Environment.getExternalStorageDirectory().path
+    private var prevPath = curPath
     private var currentSortingParameter = 0 // sorting by filename
     private var currentSortingOrder = true // sorting from large to small
 
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        path = arguments?.getString(PATH) ?: Environment.getExternalStorageDirectory().path
-    }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -45,8 +41,11 @@ class FilesListFragment : Fragment(), ListChanger {
         ) {
             override fun handleOnBackPressed() {
                 Log.i("CallBack", "Call")
-                if (path == Environment.getExternalStorageDirectory().path) requireActivity().finish()
-                else File(path).parentFile?.let { newPathList(it.absolutePath) }
+                when (curPath) {
+                    Environment.getExternalStorageDirectory().path -> requireActivity().finish()
+                    "new_files" -> newPathList(prevPath)
+                    else -> File(curPath).parentFile?.let { newPathList(it.absolutePath) }
+                }
             }
         }
         requireActivity().onBackPressedDispatcher.addCallback(
@@ -61,7 +60,6 @@ class FilesListFragment : Fragment(), ListChanger {
     ): View {
         binding = FragmentFilesListBinding.inflate(inflater)
         adapter = ItemsAdapter(
-            requireActivity() as FragmentLauncher,
             this as ListChanger,
             requireContext()
         )
@@ -78,19 +76,34 @@ class FilesListFragment : Fragment(), ListChanger {
 
         setSpinner()
 
-        val root = File(path)
+        val root = File(curPath)
         val filesAndFolders = root.listFiles()
 
-        if (filesAndFolders == null || filesAndFolders.isEmpty()) {
-            binding.emptyFolderText.visibility = View.VISIBLE
-        } else {
+        if (filesAndFolders != null) {
             adapter.items = filesAndFolders.toList()
             lifecycle.coroutineScope.launch {
-                adapter.changedPaths = (requireActivity() as DbProvider).getChangedItems().map{it.path}
+                adapter.changedPaths =
+                    (requireActivity() as DbProvider).getChangedItems().map { it.path }
             }
             binding.totalCountText.text = getString(R.string.total_item_count, filesAndFolders.size)
-            binding.emptyFolderText.visibility = View.GONE
         }
+
+
+        binding.fabNewFiles.setOnClickListener {
+            val newItemList = mutableListOf<File>()
+            for (path in adapter.changedPaths) {
+                newItemList.add(File(path))
+            }
+            adapter.items = newItemList
+            sortRecycler()
+            binding.totalCountText.text = getString(
+                R.string.total_item_count,
+                adapter.changedPaths.size
+            )
+            prevPath = curPath
+            curPath = "new_files"
+        }
+
     }
 
     private fun setSpinner() {
@@ -132,10 +145,14 @@ class FilesListFragment : Fragment(), ListChanger {
     }
 
     override fun newPathList(newPath: String) {
+        lifecycle.coroutineScope.launch {
+            adapter.changedPaths =
+                (requireActivity() as DbProvider).getChangedItems().map { it.path }
+        }
         adapter.items = File(newPath).listFiles()?.toList() ?: listOf()
         sortRecycler()
         binding.totalCountText.text = getString(R.string.total_item_count, adapter.itemCount)
-        path = newPath
+        curPath = newPath
     }
 
     private fun sortRecycler() {
@@ -156,20 +173,5 @@ class FilesListFragment : Fragment(), ListChanger {
                 adapter.items
             }
         }
-    }
-
-    companion object {
-        const val PATH = "PATH"
-
-        fun newInstance(path: String): FilesListFragment {
-            val args = Bundle()
-            args.putString(PATH, path)
-            val fragment = FilesListFragment()
-            fragment.arguments = args
-            return fragment
-        }
-
-        private const val KEY_PARAMETER = "PARAMETER"
-        private const val KEY_ORDER_ICON = "ORDER"
     }
 }

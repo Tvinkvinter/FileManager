@@ -13,9 +13,12 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.coroutineScope
 import com.example.filemanager.db.FileDatabase
 import com.example.filemanager.db.FileEntity
+import com.example.filemanager.utils.HashUtils
+import com.example.filemanager.utils.MessageDigestAlgorithm
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileFilter
+import java.security.MessageDigest
 
 interface FragmentLauncher {
     fun launchFragment(fragment: Fragment)
@@ -41,12 +44,13 @@ class MainActivity : AppCompatActivity(), FragmentLauncher, DbProvider {
             }
         }
     }
-    override suspend fun getChangedItems(): List<FileEntity>{
+
+    override suspend fun getChangedItems(): List<FileEntity> {
         return db.getDao().getChangedFiles()
     }
 
     suspend fun addFilesToDb(startPath: String = Environment.getExternalStorageDirectory().absolutePath) {
-        if((File(startPath).listFiles()?.size ?:0) == 0) return
+        if ((File(startPath).listFiles()?.size ?: 0) == 0) return
         val childDirs = File(startPath).listFiles(FileFilter {
             it.isDirectory
         })
@@ -56,19 +60,21 @@ class MainActivity : AppCompatActivity(), FragmentLauncher, DbProvider {
         for (file in childFiles!!) {
             val cur_file = FileEntity(
                 path = file.absolutePath,
-                hash = file.hashCode(),
-                isChanged = false)
+                hash = HashUtils.getCheckSumFromFile(
+                    MessageDigest.getInstance(MessageDigestAlgorithm.SHA_256), file
+                ),
+                isChanged = false
+            )
             val db_file = db.getDao().getFileByPath(cur_file.path)
-            if(db_file != null){
-                if(db_file.hash != cur_file.hash){
-                    cur_file.isChanged = true
-                    db.getDao().updateFile(cur_file)
-                }
-            }else{
+            if (db_file != null) {
+                cur_file.id = db_file.id
+                cur_file.isChanged = db_file.hash != cur_file.hash
+                db.getDao().updateFile(cur_file)
+            } else {
                 db.getDao().insertFile(cur_file)
             }
         }
-        for(dir in childDirs!!){
+        for (dir in childDirs!!) {
             addFilesToDb(dir.absolutePath)
         }
     }
@@ -83,7 +89,7 @@ class MainActivity : AppCompatActivity(), FragmentLauncher, DbProvider {
 
     override fun getOnBackInvokedDispatcher(): OnBackInvokedDispatcher {
         val cur_frag = (R.id.fragment_container as ListChanger)
-        File(cur_frag.path).parentFile?.let { cur_frag.newPathList(it.absolutePath) }
+        File(cur_frag.curPath).parentFile?.let { cur_frag.newPathList(it.absolutePath) }
         return super.getOnBackInvokedDispatcher()
     }
 
@@ -94,6 +100,9 @@ class MainActivity : AppCompatActivity(), FragmentLauncher, DbProvider {
             if (isGranted) {
                 Toast.makeText(this, "Permission Granted", Toast.LENGTH_LONG).show()
                 launchFragment(FilesListFragment())
+                lifecycle.coroutineScope.launch {
+                    addFilesToDb()
+                }
             } else {
                 Toast.makeText(this, "Permission Denied", Toast.LENGTH_LONG).show()
             }

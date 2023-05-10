@@ -1,7 +1,6 @@
 package com.example.filemanager.db
 
 import androidx.room.*
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FileDao {
@@ -21,6 +20,6 @@ interface FileDao {
     @Query("SELECT * FROM files WHERE path = :path")
     suspend fun getFileByPath(path: String): FileEntity?
 
-    @Query("SELECT * FROM files WHERE isChanged = 1")
+    @Query("SELECT * FROM files WHERE isChanged = true")
     suspend fun getChangedFiles(): List<FileEntity>
 }

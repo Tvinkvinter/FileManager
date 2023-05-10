@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
     tableName = "files",
     indices = [Index("path", unique = true)]
 )
-class FileEntity (
+class FileEntity(
     @PrimaryKey(autoGenerate = true)
     var id: Int? = null,
 
@@ -17,7 +17,7 @@ class FileEntity (
     var path: String,
 
     @ColumnInfo
-    var hash: Int,
+    var hash: String,
 
     @ColumnInfo
     var isChanged: Boolean
