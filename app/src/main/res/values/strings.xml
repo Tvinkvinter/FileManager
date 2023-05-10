@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">FileManager</string>
+    <string name="total_item_count">%d in total</string>
+    <string name="empty_folder">No Files</string>
+    <string name="file_size">%d KB</string>
+    <string name="filename_parameter">Filename</string>
+    <string name="time_created_parameter">Time Created</string>
+    <string name="size_parameter">Size</string>
+    <string name="extension_parameter">Type</string>
+</resources>
